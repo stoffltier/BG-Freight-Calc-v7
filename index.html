@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freight Calculator v7</title>
+    <style>
+        :root {
+            /* Biogents Corporate Colors */
+            --bg-blue-dark: rgb(70, 116, 145);
+            --bg-blue-light: rgb(103, 162, 192);
+            --bg-grey: rgb(163, 172, 178);
+            --bg-black: rgb(0, 2, 7);
+            
+            --text-main: #333;
+            --text-light: #666;
+            --white: #ffffff;
+            --bg-app: #f4f7f9;
+            
+            --radius: 8px;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        /* --- Layout --- */
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--white);
+            padding: 15px 25px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border-left: 6px solid var(--bg-blue-dark);
+        }
+
+        .brand h1 { margin: 0; font-size: 1.5rem; color: var(--bg-blue-dark); }
+        .brand span { font-size: 0.85rem; color: var(--bg-grey); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .header-actions { display: flex; gap: 10px; }
+        
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary { background: var(--bg-blue-dark); color: white; }
+        .btn-primary:hover { background: var(--bg-blue-light); }
+        .btn-secondary { background: #eee; color: var(--text-main); }
+        .btn-secondary:hover { background: #ddd; }
+        .btn-icon { background: transparent; padding: 8px; font-size: 1.2rem; }
+        .btn-icon:hover { background: #f0f0f0; border-radius: 50%; }
+
+        main {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+        }
+
+        /* --- Input Section --- */
+        .panel {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .panel h2 { margin-top: 0; font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; color: var(--bg-blue-dark); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px; }
+        .form-group select, .form-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+        .form-group input[readonly] { background-color: #f9f9f9; color: #777; }
+
+        .packages-container { margin-bottom: 15px; }
+        .package-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr 30px;
+            gap: 5px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .package-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr 30px;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        .package-row input { padding: 6px; font-size: 0.9rem; text-align: center; border: 1px solid #ddd; border-radius: 4px; width: 100%; }
+        .btn-remove { color: #d9534f; font-weight: bold; background: none; padding: 0; }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .kpi-item { text-align: center; }
+        .kpi-label { font-size: 0.7rem; color: var(--text-light); display: block; }
+        .kpi-value { font-weight: bold; font-size: 1rem; color: var(--bg-blue-dark); }
+
+        /* --- Results Section --- */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            border-top: 4px solid transparent;
+        }
+
+        .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+
+        .card.type-air { border-top-color: #e74c3c; } /* Red accent for fast */
+        .card.type-sea { border-top-color: var(--bg-blue-dark); }
+        .card.type-train { border-top-color: #27ae60; }
+        .card.type-fcl { border-top-color: var(--bg-blue-light); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .card-title { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .card-icon { font-size: 1.4rem; }
+        
+        .card-price { font-size: 1.8rem; font-weight: 800; color: var(--bg-black); margin: 10px 0; }
+        .card-price small { font-size: 0.9rem; font-weight: normal; color: var(--text-light); }
+
+        .card-details { font-size: 0.85rem; color: var(--text-light); margin-bottom: 15px; }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
+        .detail-row.total-row { border-top: 1px solid #ddd; border-bottom: none; padding-top: 5px; font-weight: bold; color: var(--text-main); margin-top: 5px; }
+
+        .card-meta { margin-top: auto; padding-top: 10px; font-size: 0.8rem; background: #f9f9f9; margin: 0 -20px -20px -20px; padding: 10px 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .eta-badge { background: #eef2f5; padding: 2px 6px; border-radius: 4px; color: var(--bg-blue-dark); font-weight: 600; }
+
+        .alert-box {
+            grid-column: 1 / -1;
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px 15px;
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            border-left: 4px solid #ffeeba;
+        }
+
+        .break-even-box {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #e8f4f8;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--bg-blue-dark);
+            border: 1px solid #bee5eb;
+        }
+        
+        .capacity-warning {
+            color: #d9534f;
+            font-weight: bold;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        /* --- Admin Modal --- */
+        dialog {
+            border: none;
+            border-radius: var(--radius);
+            padding: 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+        }
+        dialog::backdrop { background: rgba(0,0,0,0.5); }
+        
+        .modal-header { background: var(--bg-blue-dark); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; }
+        .modal-body { padding: 20px; overflow-y: auto; max-height: calc(90vh - 130px); }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
+
+        .config-section { margin-bottom: 25px; border: 1px solid #eee; padding: 15px; border-radius: 4px; }
+        .config-section h4 { margin-top: 0; color: var(--bg-blue-dark); border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        
+        /* --- Print --- */
+        @media print {
+            header, .header-actions, .btn-remove, .btn-add, #btn-share, #btn-admin, #btn-pdf { display: none !important; }
+            .app-container { display: block; max-width: 100%; padding: 0; }
+            main { display: block; }
+            .panel { box-shadow: none; border: 1px solid #ddd; margin-bottom: 20px; page-break-inside: avoid; }
+            .results-grid { grid-template-columns: 1fr 1fr; display: grid; gap: 20px; }
+            .card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .kpi-grid { border: 1px solid #eee; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <div class="brand">
+            <h1>Freight Calculator v7</h1>
+            <span>Entwickelt von der Biogents AG</span>
+        </div>
+        <div class="header-actions">
+            <button id="btn-share" class="btn-secondary" title="Link teilen">🔗 Teilen</button>
+            <button id="btn-pdf" class="btn-secondary" title="Als PDF drucken" onclick="window.print()">🖨️ PDF</button>
+            <button id="btn-admin" class="btn-icon" title="Einstellungen">⚙️</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Input Panel -->
+        <section class="panel">
+            <h2>📦 Sendungsdaten (EXW)</h2>
+            
+            <div class="form-group">
+                <label>Route</label>
+                <input type="text" value="China ➝ Deutschland" readonly>
+            </div>
+
+            <div class="form-group">
+                <label for="destination">Empfangsland</label>
+                <select id="destination">
+                    <option value="DE">Deutschland (DE)</option>
+                    <option value="AT">Österreich (AT)</option>
+                    <option value="CH">Schweiz (CH)</option>
+                    <option value="NL">Niederlande (NL)</option>
+                </select>
+            </div>
+
+            <label style="font-size: 0.85rem; color: var(--text-light); display:block; margin-bottom: 5px;">Packstücke</label>
+            <div class="package-header">
+                <span>L (cm)</span>
+                <span>B (cm)</span>
+                <span>H (cm)</span>
+                <span>Kg/Stk</span>
+                <span>Anz.</span>
+                <span></span>
+            </div>
+            <div id="packages-list" class="packages-container">
+                <!-- Rows injected via JS -->
+            </div>
+            <button id="btn-add-row" class="btn-secondary" style="width:100%; font-size: 0.8rem;">+ Packstück hinzufügen</button>
+
+            <div class="kpi-grid">
+                <div class="kpi-item">
+                    <span class="kpi-label">Brutto (kg)</span>
+                    <span id="kpi-weight" class="kpi-value">0</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Volumen (m³)</span>
+                    <span id="kpi-vol" class="kpi-value">0.00</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">W/M (Frachttonnen)</span>
+                    <span id="kpi-wm" class="kpi-value">0.00</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Vol-Gewicht Luft</span>
+                    <span id="kpi-volw" class="kpi-value">0</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 0.75rem; color: #888; line-height: 1.3;">
+                <strong>Hinweis:</strong> Berechnungsgrundlage EXW (Ab Werk). Preise beinhalten Vorlauf, Hauptlauf und Nachlauf. Zölle, Steuern und Versicherung sind <u>nicht</u> enthalten.
+            </div>
+        </section>
+
+        <!-- Results Panel -->
+        <section>
+            <div class="alert-box">
+                Preise sind Indikativwerte. Tagesaktuelle Raten können abweichen.
+            </div>
+            <div id="results-area" class="results-grid">
+                <!-- Cards injected via JS -->
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- Admin Modal -->
+<dialog id="admin-modal">
+    <div class="modal-header">
+        <h3>Raten & Konfiguration</h3>
+        <button onclick="document.getElementById('admin-modal').close()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+    </div>
+    <div class="modal-body">
+        <div id="auth-section" style="text-align:center; padding: 40px;">
+            <p id="auth-msg">Bitte Passwort eingeben:</p>
+            <input type="password" id="auth-input" style="padding:10px; font-size:1rem; border:1px solid #ccc; border-radius:4px;">
+            <br><br>
+            <button id="btn-auth" class="btn-primary">Entsperren</button>
+        </div>
+
+        <div id="config-form" style="display:none;">
+            <div class="config-section">
+                <h4>Allgemein</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Währung</label><input type="text" data-path="general.currency"></div>
+                    <div class="form-group"><label>Luft Dim-Factor</label><input type="number" data-path="general.airDimFactor"></div>
+                    <div class="form-group"><label>LCL Min W/M</label><input type="number" data-path="general.minWM" step="0.1"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>Luftfracht</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Rate / kg</label><input type="number" data-path="air.ratePerKg" step="0.1"></div>
+                    <div class="form-group"><label>Min Charge</label><input type="number" data-path="air.minCharge"></div>
+                    <div class="form-group"><label>Fuel/Security (%)</label><input type="number" data-path="air.surchargesPct" step="0.01"></div>
+                    <div class="form-group"><label>Vorlauf</label><input type="number" data-path="air.preCarriage"></div>
+                    <div class="form-group"><label>Nachlauf</label><input type="number" data-path="air.postCarriage"></div>
+                    <div class="form-group"><label>Laufzeit (Tage)</label><input type="text" data-path="air.transitTime"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>Seefracht LCL</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Rate / W/M</label><input type="number" data-path="seaLcl.ratePerWM"></div>
+                    <div class="form-group"><label>Origin / W/M</label><input type="number" data-path="seaLcl.originWM"></div>
+                    <div class="form-group"><label>Dest / W/M</label><input type="number" data-path="seaLcl.destWM"></div>
+                    <div class="form-group"><label>Vorlauf (Fix)</label><input type="number" data-path="seaLcl.preCarriage"></div>
+                    <div class="form-group"><label>Nachlauf (Fix)</label><input type="number" data-path="seaLcl.postCarriage"></div>
+                    <div class="form-group"><label>Laufzeit</label><input type="text" data-path="seaLcl.transitTime"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>Bahnfracht LCL</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Rate / W/M</label><input type="number" data-path="trainLcl.ratePerWM"></div>
+                    <div class="form-group"><label>Origin / W/M</label><input type="number" data-path="trainLcl.originWM"></div>
+                    <div class="form-group"><label>Dest / W/M</label><input type="number" data-path="trainLcl.destWM"></div>
+                    <div class="form-group"><label>Vorlauf (Fix)</label><input type="number" data-path="trainLcl.preCarriage"></div>
+                    <div class="form-group"><label>Nachlauf (Fix)</label><input type="number" data-path="trainLcl.postCarriage"></div>
+                    <div class="form-group"><label>Laufzeit</label><input type="text" data-path="trainLcl.transitTime"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>FCL 20' GP</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Ocean Only</label><input type="number" data-path="fcl20.oceanOnly"></div>
+                    <div class="form-group"><label>Origin Fix</label><input type="number" data-path="fcl20.originFix"></div>
+                    <div class="form-group"><label>Dest Fix</label><input type="number" data-path="fcl20.destFix"></div>
+                    <div class="form-group"><label>Vorlauf</label><input type="number" data-path="fcl20.preCarriage"></div>
+                    <div class="form-group"><label>Nachlauf</label><input type="number" data-path="fcl20.postCarriage"></div>
+                    <div class="form-group"><label>Max CBM</label><input type="number" data-path="fcl20.maxCbm"></div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h4>FCL 40' HC</h4>
+                <div class="config-grid">
+                    <div class="form-group"><label>Ocean Only</label><input type="number" data-path="fcl40.oceanOnly"></div>
+                    <div class="form-group"><label>Origin Fix</label><input type="number" data-path="fcl40.originFix"></div>
+                    <div class="form-group"><label>Dest Fix</label><input type="number" data-path="fcl40.destFix"></div>
+                    <div class="form-group"><label>Vorlauf</label><input type="number" data-path="fcl40.preCarriage"></div>
+                    <div class="form-group"><label>Nachlauf</label><input type="number" data-path="fcl40.postCarriage"></div>
+                    <div class="form-group"><label>Max CBM</label><input type="number" data-path="fcl40.maxCbm"></div>
+                </div>
+            </div>
+            
+            <div style="margin-top:20px; text-align:right;">
+                <button class="btn-secondary" onclick="app.admin.exportConfig()">📋 JSON Export</button>
+                <button class="btn-secondary" onclick="app.admin.importConfig()">📥 JSON Import</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer" id="modal-footer" style="display:none">
+        <button class="btn-secondary" onclick="document.getElementById('admin-modal').close()">Abbrechen</button>
+        <button class="btn-primary" onclick="app.admin.saveConfig()">Speichern</button>
+    </div>
+</dialog>
+
+<script>
+/**
+ * Freight Calculator v7
+ * Single file logic encapsulation
+ */
+
+const Utils = {
+    fmtMoney: (amount, currency = '€') => {
+        return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount).replace('EUR', currency);
+    },
+    fmtNum: (num, decimals = 2) => {
+        return num.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    },
+    addDays: (daysStr) => {
+        // daysStr format "X+Y+Z"
+        const parts = daysStr.split(/[-+]/).map(n => parseInt(n.trim()) || 0);
+        const totalDays = parts.reduce((a, b) => a + b, 0);
+        const date = new Date();
+        date.setDate(date.getDate() + totalDays);
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    },
+    hash: async (string) => {
+        const utf8 = new TextEncoder().encode(string);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+};
+
+const DefaultConfig = {
+    general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+    air: { ratePerKg: 5.5, minCharge: 150, surchargesPct: 0.15, preCarriage: 80, postCarriage: 60, transitTime: "2+5+2" },
+    seaLcl: { ratePerWM: 80, originWM: 25, destWM: 45, preCarriage: 120, postCarriage: 150, transitTime: "5+40+5" },
+    trainLcl: { ratePerWM: 95, originWM: 30, destWM: 50, preCarriage: 110, postCarriage: 140, transitTime: "4+23+4" },
+    fcl20: { oceanOnly: 1600, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, maxCbm: 33, maxTons: 28, transitTime: "5+40+5" },
+    fcl40: { oceanOnly: 7500, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, maxCbm: 76, maxTons: 26, transitTime: "5+40+5" }
+};
+
+const App = {
+    state: {
+        packages: [{ l: 60, w: 40, h: 40, wgt: 10, count: 1 }],
+        config: DefaultConfig
+    },
+
+    init: function() {
+        this.loadConfig();
+        this.loadStateFromURL();
+        this.ui.renderPackages();
+        this.ui.bindEvents();
+        this.calculate();
+    },
+
+    loadConfig: function() {
+        const stored = localStorage.getItem('fc_config');
+        if (stored) {
+            this.state.config = { ...DefaultConfig, ...JSON.parse(stored) };
+        }
+    },
+
+    loadStateFromURL: function() {
+        const params = new URLSearchParams(window.location.search);
+        const s = params.get('s');
+        if (s) {
+            try {
+                const decoded = JSON.parse(atob(s));
+                if (decoded.p) this.state.packages = decoded.p;
+                if (decoded.d) document.getElementById('destination').value = decoded.d;
+            } catch (e) { console.error("Invalid state", e); }
+        }
+    },
+
+    calculate: function() {
+        const { packages, config } = this.state;
+        
+        // 1. Aggregates
+        let totalVolM3 = 0;
+        let totalGrossKg = 0;
+        let totalVolWeightAir = 0;
+
+        packages.forEach(p => {
+            const volM3 = (p.l * p.w * p.h / 1000000) * p.count;
+            const gross = p.wgt * p.count;
+            const volWgt = ((p.l * p.w * p.h) / config.general.airDimFactor) * p.count;
+
+            totalVolM3 += volM3;
+            totalGrossKg += gross;
+            totalVolWeightAir += volWgt;
+        });
+
+        // W/M Calculation (1 cbm = 1000kg for sea/train)
+        const wmActual = Math.max(totalVolM3, totalGrossKg / 1000);
+        const wmEff = Math.max(wmActual, config.general.minWM);
+
+        // Update KPIs
+        document.getElementById('kpi-weight').textContent = Utils.fmtNum(totalGrossKg);
+        document.getElementById('kpi-vol').textContent = Utils.fmtNum(totalVolM3, 3);
+        document.getElementById('kpi-wm').textContent = Utils.fmtNum(wmActual, 3);
+        document.getElementById('kpi-volw').textContent = Utils.fmtNum(totalVolWeightAir);
+
+        this.renderResults({ totalVolM3, totalGrossKg, totalVolWeightAir, wmEff, wmActual });
+    },
+
+    renderResults: function(metrics) {
+        const cfg = this.state.config;
+        const currency = cfg.general.currency;
+        const container = document.getElementById('results-area');
+        container.innerHTML = '';
+
+        // --- Air ---
+        const airChgWgt = Math.max(metrics.totalGrossKg, metrics.totalVolWeightAir);
+        const airMain = Math.max(cfg.air.minCharge, airChgWgt * cfg.air.ratePerKg) * (1 + cfg.air.surchargesPct);
+        const airTotal = cfg.air.preCarriage + airMain + cfg.air.postCarriage;
+        
+        container.appendChild(this.ui.createCard('type-air', '🛫 Luftfracht', airTotal, currency, cfg.air.transitTime, [
+            { l: 'Berechnungsgewicht', v: `${Utils.fmtNum(airChgWgt)} kg` },
+            { l: 'Vorlauf', v: Utils.fmtMoney(cfg.air.preCarriage, currency) },
+            { l: `Fracht (${Utils.fmtNum(cfg.air.surchargesPct*100,0)}% Zuschlag)`, v: Utils.fmtMoney(airMain, currency) },
+            { l: 'Nachlauf', v: Utils.fmtMoney(cfg.air.postCarriage, currency) }
+        ], `Dim-Factor: 1:${cfg.general.airDimFactor}`));
+
+        // --- Sea LCL ---
+        const seaMain = metrics.wmEff * cfg.seaLcl.ratePerWM;
+        const seaOrg = metrics.wmEff * cfg.seaLcl.originWM;
+        const seaDest = metrics.wmEff * cfg.seaLcl.destWM;
+        const seaTotal = cfg.seaLcl.preCarriage + seaOrg + seaMain + seaDest + cfg.seaLcl.postCarriage;
+
+        container.appendChild(this.ui.createCard('type-sea', '🚢 Seefracht LCL', seaTotal, currency, cfg.seaLcl.transitTime, [
+            { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
+            { l: 'Vorlauf', v: Utils.fmtMoney(cfg.seaLcl.preCarriage, currency) },
+            { l: 'Origin Charges', v: Utils.fmtMoney(seaOrg, currency) },
+            { l: 'Seefracht', v: Utils.fmtMoney(seaMain, currency) },
+            { l: 'Dest. Charges', v: Utils.fmtMoney(seaDest, currency) },
+            { l: 'Nachlauf', v: Utils.fmtMoney(cfg.seaLcl.postCarriage, currency) }
+        ]));
+
+        // --- Train LCL ---
+        const trainMain = metrics.wmEff * cfg.trainLcl.ratePerWM;
+        const trainOrg = metrics.wmEff * cfg.trainLcl.originWM;
+        const trainDest = metrics.wmEff * cfg.trainLcl.destWM;
+        const trainTotal = cfg.trainLcl.preCarriage + trainOrg + trainMain + trainDest + cfg.trainLcl.postCarriage;
+
+        container.appendChild(this.ui.createCard('type-train', '🚂 Bahn LCL', trainTotal, currency, cfg.trainLcl.transitTime, [
+             { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
+             { l: 'Vorlauf', v: Utils.fmtMoney(cfg.trainLcl.preCarriage, currency) },
+             { l: 'Origin/Main/Dest', v: Utils.fmtMoney(trainOrg + trainMain + trainDest, currency) },
+             { l: 'Nachlauf', v: Utils.fmtMoney(cfg.trainLcl.postCarriage, currency) }
+        ]));
+
+        // --- FCL Helper & Break Even Logic ---
+        const calcFCL = (type, cData, cbm, wgt) => {
+            const total = cData.preCarriage + cData.originFix + cData.oceanOnly + cData.destFix + cData.postCarriage;
+            const isOver = cbm > cData.maxCbm || (wgt / 1000) > cData.maxTons;
+            
+            // Break-even vs Sea LCL
+            // LCL = Fixed_LCL + Variable_LCL * WM
+            // FCL = Total_FCL
+            // WM* = (Total_FCL - Fixed_LCL) / Variable_LCL
+            const lclFixed = cfg.seaLcl.preCarriage + cfg.seaLcl.postCarriage;
+            const lclVar = cfg.seaLcl.originWM + cfg.seaLcl.ratePerWM + cfg.seaLcl.destWM;
+            
+            let beText = "";
+            if (lclVar > 0) {
+                const wmBreakEven = (total - lclFixed) / lclVar;
+                if (metrics.wmActual > wmBreakEven) {
+                    beText = `✅ FCL ist günstiger (Sparpotenzial: ${Utils.fmtMoney(seaTotal - total, currency)})`;
+                } else {
+                    beText = `ℹ️ Break-even ggü. LCL ab ca. ${Utils.fmtNum(wmBreakEven, 2)} m³`;
+                }
+            }
+
+            return { total, isOver, beText };
+        };
+
+        // --- FCL 20' ---
+        const fcl20 = calcFCL('20\'', cfg.fcl20, metrics.totalVolM3, metrics.totalGrossKg);
+        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 20\' GP', fcl20.total, currency, cfg.fcl20.transitTime, [
+            { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl20.preCarriage + cfg.fcl20.postCarriage, currency) },
+            { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl20.originFix + cfg.fcl20.destFix, currency) },
+            { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl20.oceanOnly, currency) }
+        ], null, fcl20.isOver ? "⚠️ Kapazität überschritten!" : null, fcl20.beText));
+
+        // --- FCL 40' ---
+        const fcl40 = calcFCL('40\'', cfg.fcl40, metrics.totalVolM3, metrics.totalGrossKg);
+        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 40\' HC', fcl40.total, currency, cfg.fcl40.transitTime, [
+            { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl40.preCarriage + cfg.fcl40.postCarriage, currency) },
+            { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl40.originFix + cfg.fcl40.destFix, currency) },
+            { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl40.oceanOnly, currency) }
+        ], null, fcl40.isOver ? "⚠️ Kapazität überschritten!" : null, fcl40.beText));
+    },
+
+    ui: {
+        bindEvents: function() {
+            document.getElementById('btn-add-row').addEventListener('click', () => {
+                App.state.packages.push({ l: 0, w: 0, h: 0, wgt: 0, count: 1 });
+                this.renderPackages();
+                App.calculate();
+            });
+
+            document.getElementById('packages-list').addEventListener('input', (e) => {
+                const idx = e.target.closest('.package-row').dataset.index;
+                const field = e.target.dataset.field;
+                App.state.packages[idx][field] = parseFloat(e.target.value) || 0;
+                App.calculate();
+            });
+
+            document.getElementById('packages-list').addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-remove')) {
+                    const idx = e.target.closest('.package-row').dataset.index;
+                    App.state.packages.splice(idx, 1);
+                    this.renderPackages();
+                    App.calculate();
+                }
+            });
+
+            document.getElementById('destination').addEventListener('change', () => App.calculate());
+            document.getElementById('btn-share').addEventListener('click', App.share);
+            document.getElementById('btn-admin').addEventListener('click', App.admin.open);
+        },
+
+        renderPackages: function() {
+            const list = document.getElementById('packages-list');
+            list.innerHTML = App.state.packages.map((p, i) => `
+                <div class="package-row" data-index="${i}">
+                    <input type="number" data-field="l" value="${p.l}" placeholder="L">
+                    <input type="number" data-field="w" value="${p.w}" placeholder="B">
+                    <input type="number" data-field="h" value="${p.h}" placeholder="H">
+                    <input type="number" data-field="wgt" value="${p.wgt}" placeholder="Kg">
+                    <input type="number" data-field="count" value="${p.count}" placeholder="Anz">
+                    <button class="btn-remove" title="Entfernen">×</button>
+                </div>
+            `).join('');
+        },
+
+        createCard: function(cls, title, amount, currency, timeStr, details, meta, warning, breakEven) {
+            const detailHtml = details.map(d => `
+                <div class="detail-row"><span>${d.l}</span><span>${d.v}</span></div>
+            `).join('');
+            
+            return Object.assign(document.createElement('div'), {
+                className: `card ${cls}`,
+                innerHTML: `
+                    <div>
+                        <div class="card-header">
+                            <div class="card-title">${title}</div>
+                        </div>
+                        <div class="card-price">${Utils.fmtMoney(amount, currency)} <small>Total</small></div>
+                        <div class="card-details">${detailHtml}</div>
+                        ${warning ? `<div class="capacity-warning">${warning}</div>` : ''}
+                        ${breakEven ? `<div class="break-even-box">${breakEven}</div>` : ''}
+                    </div>
+                    <div class="card-meta">
+                        <span>${meta || ''}</span>
+                        <span class="eta-badge">ETA: ${Utils.addDays(timeStr)}</span>
+                    </div>
+                `
+            });
+        }
+    },
+
+    share: function() {
+        const data = {
+            p: App.state.packages,
+            d: document.getElementById('destination').value
+        };
+        const str = btoa(JSON.stringify(data));
+        const url = new URL(window.location);
+        url.searchParams.set('s', str);
+        navigator.clipboard.writeText(url.toString()).then(() => alert('Link in Zwischenablage kopiert!'));
+    },
+
+    admin: {
+        open: function() {
+            const dialog = document.getElementById('admin-modal');
+            dialog.showModal();
+            const hash = localStorage.getItem('fc_admin_hash');
+            if (!hash) {
+                document.getElementById('auth-msg').textContent = "Neues Admin-Passwort setzen:";
+                document.getElementById('btn-auth').textContent = "Setzen";
+            } else {
+                document.getElementById('auth-msg').textContent = "Bitte Passwort eingeben:";
+                document.getElementById('btn-auth').textContent = "Login";
+            }
+            document.getElementById('auth-input').value = '';
+            document.getElementById('auth-section').style.display = 'block';
+            document.getElementById('config-form').style.display = 'none';
+            document.getElementById('modal-footer').style.display = 'none';
+
+            // Bind Auth Button
+            document.getElementById('btn-auth').onclick = App.admin.handleAuth;
+        },
+
+        handleAuth: async function() {
+            const input = document.getElementById('auth-input').value;
+            if (!input) return;
+            const newHash = await Utils.hash(input);
+            const storedHash = localStorage.getItem('fc_admin_hash');
+
+            if (!storedHash) {
+                localStorage.setItem('fc_admin_hash', newHash);
+                App.admin.showConfig();
+            } else if (storedHash === newHash) {
+                App.admin.showConfig();
+            } else {
+                alert("Falsches Passwort!");
+            }
+        },
+
+        showConfig: function() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('config-form').style.display = 'block';
+            document.getElementById('modal-footer').style.display = 'flex';
+            
+            // Populate Inputs
+            const inputs = document.querySelectorAll('#config-form input');
+            inputs.forEach(inp => {
+                const path = inp.dataset.path.split('.');
+                inp.value = App.state.config[path[0]][path[1]];
+            });
+        },
+
+        saveConfig: function() {
+            const inputs = document.querySelectorAll('#config-form input');
+            inputs.forEach(inp => {
+                const path = inp.dataset.path.split('.');
+                const val = inp.type === 'number' ? parseFloat(inp.value) : inp.value;
+                App.state.config[path[0]][path[1]] = val;
+            });
+            localStorage.setItem('fc_config', JSON.stringify(App.state.config));
+            document.getElementById('admin-modal').close();
+            App.calculate();
+        },
+        
+        exportConfig: function() {
+            const json = JSON.stringify(App.state.config, null, 2);
+            navigator.clipboard.writeText(json).then(() => alert("Config JSON kopiert!"));
+        },
+        
+        importConfig: function() {
+            const json = prompt("JSON Config hier einfügen:");
+            if(json) {
+                try {
+                    const parsed = JSON.parse(json);
+                    App.state.config = {...App.state.config, ...parsed};
+                    App.admin.showConfig(); // refresh form
+                } catch(e) { alert("Ungültiges JSON"); }
+            }
+        }
+    }
+};
+
+// Start
+document.addEventListener('DOMContentLoaded', () => App.init());
+
+</script>
+</body>
+</html>
