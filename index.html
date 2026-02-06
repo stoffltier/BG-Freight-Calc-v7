@@ -498,14 +498,25 @@ const App = {
     loadConfig: function() {
         const stored = localStorage.getItem('fc_config');
         if (stored) {
-            // Merge deep to ensure new keys exist if old config is loaded
-            const parsed = JSON.parse(stored);
-            this.state.config = { 
-                ...DefaultConfig, 
-                ...parsed,
-                fcl20: { ...DefaultConfig.fcl20, ...(parsed.fcl20 || {}) },
-                fcl40: { ...DefaultConfig.fcl40, ...(parsed.fcl40 || {}) }
-            };
+            try {
+                const parsed = JSON.parse(stored);
+                // Deep merge to ensure all keys from DefaultConfig are present even if localStorage is outdated
+                const merge = (def, saved) => {
+                    const res = { ...def };
+                    for (const key in saved) {
+                        if (typeof saved[key] === 'object' && saved[key] !== null && !Array.isArray(saved[key])) {
+                            res[key] = merge(def[key] || {}, saved[key]);
+                        } else {
+                            res[key] = saved[key];
+                        }
+                    }
+                    return res;
+                };
+                this.state.config = merge(DefaultConfig, parsed);
+            } catch (e) {
+                console.error("Config load error, resetting", e);
+                this.state.config = DefaultConfig;
+            }
         }
     },
 
@@ -801,16 +812,28 @@ const App = {
             // Populate Inputs
             const inputs = document.querySelectorAll('#config-form input');
             inputs.forEach(inp => {
+                if(!inp.dataset.path) return; // Guard
                 const path = inp.dataset.path.split('.');
-                inp.value = App.state.config[path[0]][path[1]];
+                // Safe access
+                if(App.state.config[path[0]]) {
+                    inp.value = App.state.config[path[0]][path[1]];
+                }
             });
         },
 
         saveConfig: function() {
-            const inputs = document.querySelectorAll('#config-form input');
+            const inputs = document.querySelectorAll('#config-form input[data-path]');
             inputs.forEach(inp => {
                 const path = inp.dataset.path.split('.');
-                const val = inp.type === 'number' ? parseFloat(inp.value) : inp.value;
+                // Handle numbers carefully to avoid NaN on empty strings
+                let val = inp.value;
+                if (inp.type === 'number') {
+                     val = (inp.value === '') ? 0 : parseFloat(inp.value);
+                }
+                
+                // Ensure section exists (deep merge in loadConfig should guarantee this, but be safe)
+                if (!App.state.config[path[0]]) App.state.config[path[0]] = {};
+                
                 App.state.config[path[0]][path[1]] = val;
             });
             localStorage.setItem('fc_config', JSON.stringify(App.state.config));
