@@ -180,6 +180,8 @@
         .card-meta { margin-top: auto; padding-top: 10px; font-size: 0.8rem; background: #f9f9f9; margin: 0 -20px -20px -20px; padding: 10px 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .eta-badge { background: #eef2f5; padding: 2px 6px; border-radius: 4px; color: var(--bg-blue-dark); font-weight: 600; }
 
+        .fcl-info { font-size: 0.75rem; background: #f0f7fb; color: #467491; padding: 8px; border-radius: 4px; margin-bottom: 8px; line-height: 1.3; border: 1px solid #dbebf4; }
+
         .alert-box {
             grid-column: 1 / -1;
             background: #fff3cd;
@@ -396,6 +398,11 @@
                     <div class="form-group"><label>Vorlauf</label><input type="number" data-path="fcl20.preCarriage"></div>
                     <div class="form-group"><label>Nachlauf</label><input type="number" data-path="fcl20.postCarriage"></div>
                     <div class="form-group"><label>Max CBM</label><input type="number" data-path="fcl20.maxCbm"></div>
+                    <div class="form-group"><label>Dim L (cm)</label><input type="number" data-path="fcl20.intL"></div>
+                    <div class="form-group"><label>Dim B (cm)</label><input type="number" data-path="fcl20.intW"></div>
+                    <div class="form-group"><label>Dim H (cm)</label><input type="number" data-path="fcl20.intH"></div>
+                    <div class="form-group"><label>Area (m²)</label><input type="number" data-path="fcl20.maxArea"></div>
+                    <div class="form-group"><label>Effizienz (0-1)</label><input type="number" data-path="fcl20.efficiency" step="0.01"></div>
                 </div>
             </div>
 
@@ -408,18 +415,23 @@
                     <div class="form-group"><label>Vorlauf</label><input type="number" data-path="fcl40.preCarriage"></div>
                     <div class="form-group"><label>Nachlauf</label><input type="number" data-path="fcl40.postCarriage"></div>
                     <div class="form-group"><label>Max CBM</label><input type="number" data-path="fcl40.maxCbm"></div>
+                    <div class="form-group"><label>Dim L (cm)</label><input type="number" data-path="fcl40.intL"></div>
+                    <div class="form-group"><label>Dim B (cm)</label><input type="number" data-path="fcl40.intW"></div>
+                    <div class="form-group"><label>Dim H (cm)</label><input type="number" data-path="fcl40.intH"></div>
+                    <div class="form-group"><label>Area (m²)</label><input type="number" data-path="fcl40.maxArea"></div>
+                    <div class="form-group"><label>Effizienz (0-1)</label><input type="number" data-path="fcl40.efficiency" step="0.01"></div>
                 </div>
             </div>
             
             <div style="margin-top:20px; text-align:right;">
-                <button class="btn-secondary" onclick="app.admin.exportConfig()">📋 JSON Export</button>
-                <button class="btn-secondary" onclick="app.admin.importConfig()">📥 JSON Import</button>
+                <button class="btn-secondary" onclick="App.admin.exportConfig()">📋 JSON Export</button>
+                <button class="btn-secondary" onclick="App.admin.importConfig()">📥 JSON Import</button>
             </div>
         </div>
     </div>
     <div class="modal-footer" id="modal-footer" style="display:none">
         <button class="btn-secondary" onclick="document.getElementById('admin-modal').close()">Abbrechen</button>
-        <button class="btn-primary" onclick="app.admin.saveConfig()">Speichern</button>
+        <button class="btn-primary" onclick="App.admin.saveConfig()">Speichern</button>
     </div>
 </dialog>
 
@@ -457,8 +469,16 @@ const DefaultConfig = {
     air: { ratePerKg: 5.5, minCharge: 150, surchargesPct: 0.15, preCarriage: 80, postCarriage: 60, transitTime: "2+5+2" },
     seaLcl: { ratePerWM: 80, originWM: 25, destWM: 45, preCarriage: 120, postCarriage: 150, transitTime: "5+40+5" },
     trainLcl: { ratePerWM: 95, originWM: 30, destWM: 50, preCarriage: 110, postCarriage: 140, transitTime: "4+23+4" },
-    fcl20: { oceanOnly: 1600, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, maxCbm: 33, maxTons: 28, transitTime: "5+40+5" },
-    fcl40: { oceanOnly: 7500, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, maxCbm: 76, maxTons: 26, transitTime: "5+40+5" }
+    fcl20: { 
+        oceanOnly: 1600, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, 
+        maxCbm: 33.2, maxTons: 28, transitTime: "5+40+5",
+        intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+    },
+    fcl40: { 
+        oceanOnly: 7500, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, 
+        maxCbm: 76.3, maxTons: 26, transitTime: "5+40+5",
+        intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+    }
 };
 
 const App = {
@@ -478,7 +498,14 @@ const App = {
     loadConfig: function() {
         const stored = localStorage.getItem('fc_config');
         if (stored) {
-            this.state.config = { ...DefaultConfig, ...JSON.parse(stored) };
+            // Merge deep to ensure new keys exist if old config is loaded
+            const parsed = JSON.parse(stored);
+            this.state.config = { 
+                ...DefaultConfig, 
+                ...parsed,
+                fcl20: { ...DefaultConfig.fcl20, ...(parsed.fcl20 || {}) },
+                fcl40: { ...DefaultConfig.fcl40, ...(parsed.fcl40 || {}) }
+            };
         }
     },
 
@@ -574,12 +601,46 @@ const App = {
         // --- FCL Helper & Break Even Logic ---
         const calcFCL = (type, cData, cbm, wgt) => {
             const total = cData.preCarriage + cData.originFix + cData.oceanOnly + cData.destFix + cData.postCarriage;
-            const isOver = cbm > cData.maxCbm || (wgt / 1000) > cData.maxTons;
             
-            // Break-even vs Sea LCL
-            // LCL = Fixed_LCL + Variable_LCL * WM
-            // FCL = Total_FCL
-            // WM* = (Total_FCL - Fixed_LCL) / Variable_LCL
+            // Logic: Estimate linear length needed based on volume and efficiency
+            // UsedVol = width_m * height_m * UsedLength_m * efficiency
+            // UsedLength_m = TotalVol / (width_m * height_m * efficiency)
+            
+            const eff = cData.efficiency || 0.85;
+            const dimsCm = `${cData.intL}x${cData.intW}x${cData.intH}`;
+            const areaM2 = cData.maxArea;
+            
+            const w_m = cData.intW / 100;
+            const h_m = cData.intH / 100;
+            
+            // Estimate length used in CM
+            const lengthNeededCm = (cbm / (w_m * h_m * eff)) * 100;
+            
+            // Checks
+            const isVolOver = cbm > cData.maxCbm;
+            const isWgtOver = (wgt / 1000) > cData.maxTons;
+            const isLenOver = lengthNeededCm > cData.intL;
+            
+            const isOver = isVolOver || isWgtOver || isLenOver;
+            
+            let warning = null;
+            if (isOver) {
+                if (isWgtOver) warning = "⚠️ Max. Gewicht überschritten!";
+                else if (isVolOver) warning = "⚠️ Max. Volumen (m³) überschritten!";
+                else warning = "⚠️ Container (Maße) wahrscheinlich voll!";
+            }
+
+            // Info Text
+            const infoText = `
+                <div class="fcl-info">
+                    <strong>Maße:</strong> ${dimsCm} cm<br>
+                    <strong>Boden:</strong> ${areaM2} m²<br>
+                    <strong>Est. Ladelänge:</strong> ~${Utils.fmtNum(lengthNeededCm, 0)} cm <br>
+                    <span style="font-size:0.7rem; color:#666;">(bei ${(eff*100).toFixed(0)}% Staufaktor)</span>
+                </div>
+            `;
+
+            // Break-even
             const lclFixed = cfg.seaLcl.preCarriage + cfg.seaLcl.postCarriage;
             const lclVar = cfg.seaLcl.originWM + cfg.seaLcl.ratePerWM + cfg.seaLcl.destWM;
             
@@ -593,7 +654,7 @@ const App = {
                 }
             }
 
-            return { total, isOver, beText };
+            return { total, warning, beText, infoText };
         };
 
         // --- FCL 20' ---
@@ -602,7 +663,7 @@ const App = {
             { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl20.preCarriage + cfg.fcl20.postCarriage, currency) },
             { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl20.originFix + cfg.fcl20.destFix, currency) },
             { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl20.oceanOnly, currency) }
-        ], null, fcl20.isOver ? "⚠️ Kapazität überschritten!" : null, fcl20.beText));
+        ], fcl20.infoText, fcl20.warning, fcl20.beText));
 
         // --- FCL 40' ---
         const fcl40 = calcFCL('40\'', cfg.fcl40, metrics.totalVolM3, metrics.totalGrossKg);
@@ -610,7 +671,7 @@ const App = {
             { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl40.preCarriage + cfg.fcl40.postCarriage, currency) },
             { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl40.originFix + cfg.fcl40.destFix, currency) },
             { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl40.oceanOnly, currency) }
-        ], null, fcl40.isOver ? "⚠️ Kapazität überschritten!" : null, fcl40.beText));
+        ], fcl40.infoText, fcl40.warning, fcl40.beText));
     },
 
     ui: {
@@ -656,11 +717,15 @@ const App = {
             `).join('');
         },
 
-        createCard: function(cls, title, amount, currency, timeStr, details, meta, warning, breakEven) {
+        createCard: function(cls, title, amount, currency, timeStr, details, metaOrHtml, warning, breakEven) {
             const detailHtml = details.map(d => `
                 <div class="detail-row"><span>${d.l}</span><span>${d.v}</span></div>
             `).join('');
             
+            // metaOrHtml can be plain text (meta) or HTML block (FCL info)
+            const isHtml = metaOrHtml && metaOrHtml.includes('<div');
+            const metaContent = isHtml ? metaOrHtml : (metaOrHtml ? `<div class="card-meta"><span>${metaOrHtml}</span><span class="eta-badge">ETA: ${Utils.addDays(timeStr)}</span></div>` : `<div class="card-meta"><span></span><span class="eta-badge">ETA: ${Utils.addDays(timeStr)}</span></div>`);
+
             return Object.assign(document.createElement('div'), {
                 className: `card ${cls}`,
                 innerHTML: `
@@ -670,13 +735,11 @@ const App = {
                         </div>
                         <div class="card-price">${Utils.fmtMoney(amount, currency)} <small>Total</small></div>
                         <div class="card-details">${detailHtml}</div>
+                        ${isHtml ? metaOrHtml : ''}
                         ${warning ? `<div class="capacity-warning">${warning}</div>` : ''}
                         ${breakEven ? `<div class="break-even-box">${breakEven}</div>` : ''}
                     </div>
-                    <div class="card-meta">
-                        <span>${meta || ''}</span>
-                        <span class="eta-badge">ETA: ${Utils.addDays(timeStr)}</span>
-                    </div>
+                    ${!isHtml ? metaContent : `<div class="card-meta"><span></span><span class="eta-badge">ETA: ${Utils.addDays(timeStr)}</span></div>`}
                 `
             });
         }
@@ -765,7 +828,12 @@ const App = {
             if(json) {
                 try {
                     const parsed = JSON.parse(json);
-                    App.state.config = {...App.state.config, ...parsed};
+                    App.state.config = {
+                        ...App.state.config, 
+                        ...parsed,
+                        fcl20: { ...App.state.config.fcl20, ...(parsed.fcl20 || {}) },
+                        fcl40: { ...App.state.config.fcl40, ...(parsed.fcl40 || {}) }
+                    };
                     App.admin.showConfig(); // refresh form
                 } catch(e) { alert("Ungültiges JSON"); }
             }
