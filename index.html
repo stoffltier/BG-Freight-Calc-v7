@@ -57,6 +57,11 @@
             border-left: 6px solid var(--bg-blue-dark);
         }
 
+        .brand-wrapper { display: flex; align-items: center; gap: 20px; }
+        .logo-link { display: flex; align-items: center; transition: opacity 0.2s; }
+        .logo-link:hover { opacity: 0.8; }
+        .logo-img { height: 45px; width: auto; }
+
         .brand h1 { margin: 0; font-size: 1.5rem; color: var(--bg-blue-dark); }
         .brand span { font-size: 0.85rem; color: var(--bg-grey); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 
@@ -248,9 +253,14 @@
 
 <div class="app-container">
     <header>
-        <div class="brand">
-            <h1>Freight Calculator v7</h1>
-            <span>Entwickelt von der Biogents AG</span>
+        <div class="brand-wrapper">
+            <a href="https://eu.biogents.com" target="_blank" class="logo-link" title="Biogents Website besuchen">
+                <img src="https://eu.biogents.com/wp-content/themes/biogents/img/logo_blue.gif" alt="Biogents Logo" class="logo-img">
+            </a>
+            <div class="brand">
+                <h1>Freight Calculator v7</h1>
+                <span>Entwickelt von der Biogents AG</span>
+            </div>
         </div>
         <div class="header-actions">
             <button id="btn-share" class="btn-secondary" title="Link teilen">🔗 Teilen</button>
@@ -461,6 +471,19 @@ const Utils = {
         const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    },
+    deepMerge: (def, saved) => {
+        const res = { ...def };
+        for (const key in saved) {
+            if (saved[key] !== undefined) {
+                if (typeof saved[key] === 'object' && saved[key] !== null && !Array.isArray(saved[key]) && typeof def[key] === 'object') {
+                    res[key] = Utils.deepMerge(def[key], saved[key]);
+                } else {
+                    res[key] = saved[key];
+                }
+            }
+        }
+        return res;
     }
 };
 
@@ -470,12 +493,12 @@ const DefaultConfig = {
     seaLcl: { ratePerWM: 80, originWM: 25, destWM: 45, preCarriage: 120, postCarriage: 150, transitTime: "5+40+5" },
     trainLcl: { ratePerWM: 95, originWM: 30, destWM: 50, preCarriage: 110, postCarriage: 140, transitTime: "4+23+4" },
     fcl20: { 
-        oceanOnly: 1600, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, 
+        oceanOnly: 1800, originFix: 250, destFix: 350, preCarriage: 400, postCarriage: 750, 
         maxCbm: 33.2, maxTons: 28, transitTime: "5+40+5",
         intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
     },
     fcl40: { 
-        oceanOnly: 7500, originFix: 250, destFix: 350, preCarriage: 120, postCarriage: 150, 
+        oceanOnly: 4300, originFix: 250, destFix: 350, preCarriage: 500, postCarriage: 800, 
         maxCbm: 76.3, maxTons: 26, transitTime: "5+40+5",
         intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
     }
@@ -483,7 +506,7 @@ const DefaultConfig = {
 
 const App = {
     state: {
-        packages: [{ l: 60, w: 40, h: 40, wgt: 10, count: 1 }],
+        packages: [{ l: 40, w: 40, h: 25, wgt: 3, count: 1 }],
         config: DefaultConfig
     },
 
@@ -500,19 +523,8 @@ const App = {
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                // Deep merge to ensure all keys from DefaultConfig are present even if localStorage is outdated
-                const merge = (def, saved) => {
-                    const res = { ...def };
-                    for (const key in saved) {
-                        if (typeof saved[key] === 'object' && saved[key] !== null && !Array.isArray(saved[key])) {
-                            res[key] = merge(def[key] || {}, saved[key]);
-                        } else {
-                            res[key] = saved[key];
-                        }
-                    }
-                    return res;
-                };
-                this.state.config = merge(DefaultConfig, parsed);
+                // Use robust deep merge
+                this.state.config = Utils.deepMerge(DefaultConfig, parsed);
             } catch (e) {
                 console.error("Config load error, resetting", e);
                 this.state.config = DefaultConfig;
@@ -822,28 +834,41 @@ const App = {
         },
 
         saveConfig: function() {
-            const inputs = document.querySelectorAll('#config-form input[data-path]');
-            inputs.forEach(inp => {
-                const path = inp.dataset.path.split('.');
-                // Handle numbers carefully to avoid NaN on empty strings
-                let val = inp.value;
-                if (inp.type === 'number') {
-                     val = (inp.value === '') ? 0 : parseFloat(inp.value);
-                }
-                
-                // Ensure section exists (deep merge in loadConfig should guarantee this, but be safe)
-                if (!App.state.config[path[0]]) App.state.config[path[0]] = {};
-                
-                App.state.config[path[0]][path[1]] = val;
-            });
-            localStorage.setItem('fc_config', JSON.stringify(App.state.config));
-            document.getElementById('admin-modal').close();
-            App.calculate();
+            try {
+                const inputs = document.querySelectorAll('#config-form input[data-path]');
+                inputs.forEach(inp => {
+                    const path = inp.dataset.path.split('.');
+                    if(!path || path.length < 2) return;
+                    
+                    // Handle numbers carefully to avoid NaN on empty strings
+                    let val = inp.value;
+                    if (inp.type === 'number') {
+                        val = (inp.value === '') ? 0 : parseFloat(inp.value);
+                    }
+                    
+                    // Ensure section exists
+                    if (!App.state.config[path[0]]) App.state.config[path[0]] = {};
+                    
+                    App.state.config[path[0]][path[1]] = val;
+                });
+                localStorage.setItem('fc_config', JSON.stringify(App.state.config));
+                App.calculate();
+                document.getElementById('admin-modal').close();
+            } catch(e) {
+                alert("Fehler beim Speichern: " + e.message);
+                console.error(e);
+            }
         },
         
         exportConfig: function() {
             const json = JSON.stringify(App.state.config, null, 2);
-            navigator.clipboard.writeText(json).then(() => alert("Config JSON kopiert!"));
+            if (navigator.clipboard && window.isSecureContext) {
+                 navigator.clipboard.writeText(json)
+                    .then(() => alert("Config JSON kopiert!"))
+                    .catch(() => prompt("Kopieren fehlgeschlagen. Bitte manuell kopieren:", json));
+            } else {
+                 prompt("Bitte Config JSON manuell kopieren:", json);
+            }
         },
         
         importConfig: function() {
@@ -851,14 +876,10 @@ const App = {
             if(json) {
                 try {
                     const parsed = JSON.parse(json);
-                    App.state.config = {
-                        ...App.state.config, 
-                        ...parsed,
-                        fcl20: { ...App.state.config.fcl20, ...(parsed.fcl20 || {}) },
-                        fcl40: { ...App.state.config.fcl40, ...(parsed.fcl40 || {}) }
-                    };
+                    // Use Utils.deepMerge
+                    App.state.config = Utils.deepMerge(App.state.config, parsed);
                     App.admin.showConfig(); // refresh form
-                } catch(e) { alert("Ungültiges JSON"); }
+                } catch(e) { alert("Ungültiges JSON: " + e.message); }
             }
         }
     }
