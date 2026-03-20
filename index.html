@@ -143,6 +143,34 @@
         .kpi-label { font-size: 0.7rem; color: var(--text-light); display: block; }
         .kpi-value { font-weight: bold; font-size: 1rem; color: var(--bg-blue-dark); }
 
+        .progress-container {
+            width: 100%;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            height: 6px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .utilization-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-top: 12px;
+            color: var(--text-light);
+            border-top: 1px dashed #ddd;
+            padding-top: 8px;
+        }
+        .utilization-label {
+            display: flex;
+            flex-direction: column;
+            width: 48%;
+        }
+
         /* --- Results Section --- */
         .results-grid {
             display: grid;
@@ -248,6 +276,7 @@
             .kpi-grid { border: 1px solid #eee; }
         }
     </style>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
 
@@ -258,8 +287,8 @@
                 <img src="https://eu.biogents.com/wp-content/themes/biogents/img/logo_blue.gif" alt="Biogents Logo" class="logo-img">
             </a>
             <div class="brand">
-                <h1>Freight Calculator v7</h1>
-                <span>Entwickelt mithilfe des KI-ILB Programms für die Biogents AG</span>
+                <h1>Freight Calculator v8</h1>
+                <span>Entwickelt von Christoph mithilfe des KI-ILB Programms für die Biogents AG</span>
             </div>
         </div>
         <div class="header-actions">
@@ -272,20 +301,51 @@
     <main>
         <!-- Input Panel -->
         <section class="panel">
-            <h2>📦 Sendungsdaten (EXW)</h2>
+            <h2>📦 Sendungsdaten</h2>
             
-            <div class="form-group">
-                <label>Route</label>
-                <input type="text" value="China ➝ Deutschland" readonly>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="role">Wir sind...</label>
+                    <select id="role">
+                        <option value="buyer">Käufer (Importeur)</option>
+                        <option value="seller">Verkäufer (Exporteur)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="incoterm">Incoterm</label>
+                    <select id="incoterm">
+                        <option value="EXW">EXW</option>
+                        <option value="FCA">FCA</option>
+                        <option value="FOB">FOB</option>
+                        <option value="CIF">CIF / CFR</option>
+                        <option value="DAP">DAP</option>
+                        <option value="DDP">DDP</option>
+                    </select>
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="destination">Empfangsland</label>
+                <label for="trade-lane">Route</label>
+                <select id="trade-lane">
+                    <option value="CN-EU">China ➝ Europa</option>
+                    <option value="EU-CN">Europa ➝ China</option>
+                    <option value="EU-US">Europa ➝ USA</option>
+                    <option value="EU-ME">Europa ➝ Naher Osten</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="destination-group">
+                <label for="destination">Empfangsland / Region</label>
                 <select id="destination">
-                    <option value="DE">Deutschland (DE)</option>
-                    <option value="AT">Österreich (AT)</option>
-                    <option value="CH">Schweiz (CH)</option>
-                    <option value="NL">Niederlande (NL)</option>
+                    <option value="DE" class="dest-cn-eu">Deutschland (DE)</option>
+                    <option value="AT" class="dest-cn-eu">Österreich (AT)</option>
+                    <option value="CH" class="dest-cn-eu">Schweiz (CH)</option>
+                    <option value="NL" class="dest-cn-eu">Niederlande (NL)</option>
+                    <option value="CN" class="dest-eu-cn" style="display:none;">China (CN)</option>
+                    <option value="US-EC" class="dest-eu-us" style="display:none;">USA Ostküste (US-EC)</option>
+                    <option value="US-WC" class="dest-eu-us" style="display:none;">USA Westküste (US-WC)</option>
+                    <option value="AE" class="dest-eu-me" style="display:none;">Ver. Arabische Emirate (AE)</option>
+                    <option value="SA" class="dest-eu-me" style="display:none;">Saudi-Arabien (SA)</option>
                 </select>
             </div>
 
@@ -330,7 +390,8 @@
         <!-- Results Panel -->
         <section>
             <div class="alert-box">
-                Preise sind Indikativwerte. Tagesaktuelle Raten können abweichen.
+                Preise sind Indikativwerte. Tagesaktuelle Raten können abweichen.<br>
+                <small>Quelle Raten DE ➝ US: Freightos Baltic Index (FBX) / Xeneta (Stand: März 2026)</small>
             </div>
             <div id="results-area" class="results-grid">
                 <!-- Cards injected via JS -->
@@ -341,9 +402,12 @@
 
 <!-- Admin Modal -->
 <dialog id="admin-modal">
-    <div class="modal-header">
-        <h3>Raten & Konfiguration</h3>
-        <button onclick="document.getElementById('admin-modal').close()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+    <div class="modal-header" style="position: relative;">
+        <div>
+            <h3 style="margin:0;">Raten & Konfiguration</h3>
+            <div id="admin-route-info" style="font-size: 0.8rem; opacity: 0.8; margin-top: 5px;"></div>
+        </div>
+        <button onclick="document.getElementById('admin-modal').close()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer; position:absolute; right:20px; top:15px;">&times;</button>
     </div>
     <div class="modal-body">
         <div id="auth-section" style="text-align:center; padding: 40px;">
@@ -487,27 +551,106 @@ const Utils = {
     }
 };
 
-const DefaultConfig = {
-    general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
-    air: { ratePerKg: 5.5, minCharge: 150, surchargesPct: 0.15, preCarriage: 80, postCarriage: 60, transitTime: "2+5+2" },
-    seaLcl: { ratePerWM: 80, originWM: 25, destWM: 45, preCarriage: 120, postCarriage: 150, transitTime: "5+40+5" },
-    trainLcl: { ratePerWM: 95, originWM: 30, destWM: 50, preCarriage: 110, postCarriage: 140, transitTime: "4+23+4" },
-    fcl20: { 
-        oceanOnly: 1800, originFix: 250, destFix: 350, preCarriage: 400, postCarriage: 750, 
-        maxCbm: 33.2, maxTons: 28, transitTime: "5+40+5",
-        intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+const DefaultConfigs = {
+    'CN-EU': {
+        general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+        air: { ratePerKg: 5.5, minCharge: 150, surchargesPct: 0.15, preCarriage: 80, postCarriage: 60, transitTime: "2+5+2" },
+        seaLcl: { ratePerWM: 80, originWM: 25, destWM: 45, preCarriage: 120, postCarriage: 150, transitTime: "5+40+5" },
+        trainLcl: { ratePerWM: 95, originWM: 30, destWM: 50, preCarriage: 110, postCarriage: 140, transitTime: "4+23+4", active: true },
+        fcl20: { 
+            oceanOnly: 1800, originFix: 250, destFix: 350, preCarriage: 400, postCarriage: 750, 
+            maxCbm: 33.2, maxTons: 28, transitTime: "5+40+5",
+            intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+        },
+        fcl40: { 
+            oceanOnly: 4300, originFix: 250, destFix: 350, preCarriage: 500, postCarriage: 800, 
+            maxCbm: 76.3, maxTons: 26, transitTime: "5+40+5",
+            intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+        }
     },
-    fcl40: { 
-        oceanOnly: 4300, originFix: 250, destFix: 350, preCarriage: 500, postCarriage: 800, 
-        maxCbm: 76.3, maxTons: 26, transitTime: "5+40+5",
-        intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+    'EU-CN': {
+        general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+        air: { ratePerKg: 3.8, minCharge: 150, surchargesPct: 0.15, preCarriage: 60, postCarriage: 80, transitTime: "2+5+2" },
+        seaLcl: { ratePerWM: 60, originWM: 45, destWM: 25, preCarriage: 150, postCarriage: 120, transitTime: "5+40+5" },
+        trainLcl: { ratePerWM: 85, originWM: 50, destWM: 30, preCarriage: 140, postCarriage: 110, transitTime: "4+23+4", active: true },
+        fcl20: { 
+            oceanOnly: 1200, originFix: 350, destFix: 250, preCarriage: 750, postCarriage: 400, 
+            maxCbm: 33.2, maxTons: 28, transitTime: "5+40+5",
+            intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+        },
+        fcl40: { 
+            oceanOnly: 1800, originFix: 350, destFix: 250, preCarriage: 800, postCarriage: 500, 
+            maxCbm: 76.3, maxTons: 26, transitTime: "5+40+5",
+            intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+        }
+    },
+    'EU-US-EC': {
+        general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+        air: { ratePerKg: 4.2, minCharge: 120, surchargesPct: 0.15, preCarriage: 60, postCarriage: 100, transitTime: "1+3+2" },
+        seaLcl: { ratePerWM: 75, originWM: 45, destWM: 65, preCarriage: 150, postCarriage: 200, transitTime: "4+14+5" },
+        trainLcl: { ratePerWM: 0, originWM: 0, destWM: 0, preCarriage: 0, postCarriage: 0, transitTime: "", active: false },
+        fcl20: { 
+            oceanOnly: 2100, originFix: 350, destFix: 450, preCarriage: 500, postCarriage: 800, 
+            maxCbm: 33.2, maxTons: 28, transitTime: "4+14+5",
+            intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+        },
+        fcl40: { 
+            oceanOnly: 2800, originFix: 350, destFix: 450, preCarriage: 500, postCarriage: 800, 
+            maxCbm: 76.3, maxTons: 26, transitTime: "4+14+5",
+            intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+        }
+    },
+    'EU-US-WC': {
+        general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+        air: { ratePerKg: 4.5, minCharge: 120, surchargesPct: 0.15, preCarriage: 60, postCarriage: 100, transitTime: "1+4+2" },
+        seaLcl: { ratePerWM: 95, originWM: 45, destWM: 85, preCarriage: 150, postCarriage: 250, transitTime: "4+30+5" },
+        trainLcl: { ratePerWM: 0, originWM: 0, destWM: 0, preCarriage: 0, postCarriage: 0, transitTime: "", active: false },
+        fcl20: { 
+            oceanOnly: 3200, originFix: 350, destFix: 550, preCarriage: 500, postCarriage: 900, 
+            maxCbm: 33.2, maxTons: 28, transitTime: "4+30+5",
+            intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+        },
+        fcl40: { 
+            oceanOnly: 4200, originFix: 350, destFix: 550, preCarriage: 500, postCarriage: 900, 
+            maxCbm: 76.3, maxTons: 26, transitTime: "4+30+5",
+            intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+        }
+    },
+    'EU-ME': {
+        general: { currency: '€', airDimFactor: 6000, minWM: 1.0 },
+        air: { ratePerKg: 5.8, minCharge: 150, surchargesPct: 0.20, preCarriage: 80, postCarriage: 120, transitTime: "1+4+3" },
+        seaLcl: { ratePerWM: 110, originWM: 55, destWM: 95, preCarriage: 180, postCarriage: 280, transitTime: "4+24+7" },
+        trainLcl: { ratePerWM: 0, originWM: 0, destWM: 0, preCarriage: 0, postCarriage: 0, transitTime: "", active: false },
+        fcl20: { 
+            oceanOnly: 2400, originFix: 350, destFix: 600, preCarriage: 500, postCarriage: 1000, 
+            maxCbm: 33.2, maxTons: 28, transitTime: "4+24+7",
+            intL: 589.8, intW: 235.2, intH: 239.3, maxArea: 13.87, efficiency: 0.83 
+        },
+        fcl40: { 
+            oceanOnly: 3100, originFix: 350, destFix: 600, preCarriage: 500, postCarriage: 1000, 
+            maxCbm: 76.3, maxTons: 26, transitTime: "4+24+7",
+            intL: 1203.5, intW: 235.2, intH: 269.5, maxArea: 28.31, efficiency: 0.83
+        }
     }
 };
 
 const App = {
     state: {
+        tradeLane: 'CN-EU',
+        destination: 'DE',
+        role: 'buyer',
+        incoterm: 'EXW',
         packages: [{ l: 40, w: 40, h: 25, wgt: 3, count: 1 }],
-        config: DefaultConfig
+        config: null // Will be initialized in loadConfig
+    },
+
+    getConfigKey: function() {
+        const tl = this.state.tradeLane;
+        const dest = this.state.destination;
+        if (tl === 'EU-US') {
+            return dest === 'US-WC' ? 'EU-US-WC' : 'EU-US-EC';
+        }
+        return tl;
     },
 
     init: function() {
@@ -515,20 +658,25 @@ const App = {
         this.loadStateFromURL();
         this.ui.renderPackages();
         this.ui.bindEvents();
+        this.ui.updateDestinationOptions();
         this.calculate();
     },
 
     loadConfig: function() {
-        const stored = localStorage.getItem('fc_config');
+        const configKey = this.getConfigKey();
+        const stored = localStorage.getItem(`fc_config_${configKey}`);
+        const defaultConfig = DefaultConfigs[configKey];
+        
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                // Use robust deep merge
-                this.state.config = Utils.deepMerge(DefaultConfig, parsed);
+                this.state.config = Utils.deepMerge(defaultConfig, parsed);
             } catch (e) {
                 console.error("Config load error, resetting", e);
-                this.state.config = DefaultConfig;
+                this.state.config = JSON.parse(JSON.stringify(defaultConfig));
             }
+        } else {
+            this.state.config = JSON.parse(JSON.stringify(defaultConfig));
         }
     },
 
@@ -539,7 +687,23 @@ const App = {
             try {
                 const decoded = JSON.parse(atob(s));
                 if (decoded.p) this.state.packages = decoded.p;
-                if (decoded.d) document.getElementById('destination').value = decoded.d;
+                if (decoded.tl) {
+                    this.state.tradeLane = decoded.tl;
+                    document.getElementById('trade-lane').value = decoded.tl;
+                }
+                if (decoded.d) {
+                    this.state.destination = decoded.d;
+                    document.getElementById('destination').value = decoded.d;
+                }
+                if (decoded.r) {
+                    this.state.role = decoded.r;
+                    document.getElementById('role').value = decoded.r;
+                }
+                if (decoded.i) {
+                    this.state.incoterm = decoded.i;
+                    document.getElementById('incoterm').value = decoded.i;
+                }
+                this.loadConfig();
             } catch (e) { console.error("Invalid state", e); }
         }
     },
@@ -581,54 +745,66 @@ const App = {
         const container = document.getElementById('results-area');
         container.innerHTML = '';
 
+        // Incoterm Logic
+        const incotermMatrix = {
+            'EXW': { buyer: [1, 1, 1, 1, 1], seller: [0, 0, 0, 0, 0] },
+            'FCA': { buyer: [0, 0, 1, 1, 1], seller: [1, 1, 0, 0, 0] },
+            'FOB': { buyer: [0, 0, 1, 1, 1], seller: [1, 1, 0, 0, 0] },
+            'CIF': { buyer: [0, 0, 0, 1, 1], seller: [1, 1, 1, 0, 0] },
+            'DAP': { buyer: [0, 0, 0, 0, 0], seller: [1, 1, 1, 1, 1] },
+            'DDP': { buyer: [0, 0, 0, 0, 0], seller: [1, 1, 1, 1, 1] }
+        };
+        const m = incotermMatrix[this.state.incoterm][this.state.role];
+
+        const fmtCost = (amt, mult) => {
+            if (mult === 0) return `<span style="text-decoration: line-through; color: #999;">${Utils.fmtMoney(amt, currency)}</span> <span style="color:var(--primary); font-size:0.7rem;">(Incoterm)</span>`;
+            return Utils.fmtMoney(amt, currency);
+        };
+
         // --- Air ---
         const airChgWgt = Math.max(metrics.totalGrossKg, metrics.totalVolWeightAir);
+        const airPre = cfg.air.preCarriage;
         const airMain = Math.max(cfg.air.minCharge, airChgWgt * cfg.air.ratePerKg) * (1 + cfg.air.surchargesPct);
-        const airTotal = cfg.air.preCarriage + airMain + cfg.air.postCarriage;
+        const airPost = cfg.air.postCarriage;
+        const airTotal = (airPre * m[0]) + (airMain * m[2]) + (airPost * m[4]);
         
         container.appendChild(this.ui.createCard('type-air', '🛫 Luftfracht', airTotal, currency, cfg.air.transitTime, [
             { l: 'Berechnungsgewicht', v: `${Utils.fmtNum(airChgWgt)} kg` },
-            { l: 'Vorlauf', v: Utils.fmtMoney(cfg.air.preCarriage, currency) },
-            { l: `Fracht (${Utils.fmtNum(cfg.air.surchargesPct*100,0)}% Zuschlag)`, v: Utils.fmtMoney(airMain, currency) },
-            { l: 'Nachlauf', v: Utils.fmtMoney(cfg.air.postCarriage, currency) }
+            { l: 'Vorlauf', v: fmtCost(airPre, m[0]) },
+            { l: `Fracht (${Utils.fmtNum(cfg.air.surchargesPct*100,0)}% Zuschlag)`, v: fmtCost(airMain, m[2]) },
+            { l: 'Nachlauf', v: fmtCost(airPost, m[4]) }
         ], `Dim-Factor: 1:${cfg.general.airDimFactor}`));
 
-        // --- Sea LCL ---
-        const seaMain = metrics.wmEff * cfg.seaLcl.ratePerWM;
+        // --- 2. Calculate Sea LCL ---
+        const seaPre = cfg.seaLcl.preCarriage;
         const seaOrg = metrics.wmEff * cfg.seaLcl.originWM;
+        const seaMain = metrics.wmEff * cfg.seaLcl.ratePerWM;
         const seaDest = metrics.wmEff * cfg.seaLcl.destWM;
-        const seaTotal = cfg.seaLcl.preCarriage + seaOrg + seaMain + seaDest + cfg.seaLcl.postCarriage;
+        const seaPost = cfg.seaLcl.postCarriage;
+        const seaTotal = (seaPre * m[0]) + (seaOrg * m[1]) + (seaMain * m[2]) + (seaDest * m[3]) + (seaPost * m[4]);
 
-        container.appendChild(this.ui.createCard('type-sea', '🚢 Seefracht LCL', seaTotal, currency, cfg.seaLcl.transitTime, [
-            { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
-            { l: 'Vorlauf', v: Utils.fmtMoney(cfg.seaLcl.preCarriage, currency) },
-            { l: 'Origin Charges', v: Utils.fmtMoney(seaOrg, currency) },
-            { l: 'Seefracht', v: Utils.fmtMoney(seaMain, currency) },
-            { l: 'Dest. Charges', v: Utils.fmtMoney(seaDest, currency) },
-            { l: 'Nachlauf', v: Utils.fmtMoney(cfg.seaLcl.postCarriage, currency) }
-        ]));
+        // --- 3. Calculate Train LCL ---
+        let trainTotal = 0, trPre = 0, trOrg = 0, trMain = 0, trDest = 0, trPost = 0;
+        if (cfg.trainLcl.active !== false) {
+            trPre = cfg.trainLcl.preCarriage;
+            trOrg = metrics.wmEff * cfg.trainLcl.originWM;
+            trMain = metrics.wmEff * cfg.trainLcl.ratePerWM;
+            trDest = metrics.wmEff * cfg.trainLcl.destWM;
+            trPost = cfg.trainLcl.postCarriage;
+            trainTotal = (trPre * m[0]) + (trOrg * m[1]) + (trMain * m[2]) + (trDest * m[3]) + (trPost * m[4]);
+        }
 
-        // --- Train LCL ---
-        const trainMain = metrics.wmEff * cfg.trainLcl.ratePerWM;
-        const trainOrg = metrics.wmEff * cfg.trainLcl.originWM;
-        const trainDest = metrics.wmEff * cfg.trainLcl.destWM;
-        const trainTotal = cfg.trainLcl.preCarriage + trainOrg + trainMain + trainDest + cfg.trainLcl.postCarriage;
-
-        container.appendChild(this.ui.createCard('type-train', '🚂 Bahn LCL', trainTotal, currency, cfg.trainLcl.transitTime, [
-             { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
-             { l: 'Vorlauf', v: Utils.fmtMoney(cfg.trainLcl.preCarriage, currency) },
-             { l: 'Origin/Main/Dest', v: Utils.fmtMoney(trainOrg + trainMain + trainDest, currency) },
-             { l: 'Nachlauf', v: Utils.fmtMoney(cfg.trainLcl.postCarriage, currency) }
-        ]));
-
-        // --- FCL Helper & Break Even Logic ---
+        // --- 4. Calculate FCL ---
         const calcFCL = (type, cData, cbm, wgt) => {
-            const total = cData.preCarriage + cData.originFix + cData.oceanOnly + cData.destFix + cData.postCarriage;
+            const fclPre = cData.preCarriage;
+            const fclOrig = cData.originFix;
+            const fclMain = cData.oceanOnly;
+            const fclDest = cData.destFix;
+            const fclPost = cData.postCarriage;
+
+            const total = (fclPre * m[0]) + (fclOrig * m[1]) + (fclMain * m[2]) + (fclDest * m[3]) + (fclPost * m[4]);
             
             // Logic: Estimate linear length needed based on volume and efficiency
-            // UsedVol = width_m * height_m * UsedLength_m * efficiency
-            // UsedLength_m = TotalVol / (width_m * height_m * efficiency)
-            
             const eff = cData.efficiency || 0.85;
             const dimsCm = `${cData.intL}x${cData.intW}x${cData.intH}`;
             const areaM2 = cData.maxArea;
@@ -653,6 +829,12 @@ const App = {
                 else warning = "⚠️ Container (Maße) wahrscheinlich voll!";
             }
 
+            const volPct = Math.min(100, (cbm / cData.maxCbm) * 100);
+            const wgtPct = Math.min(100, ((wgt / 1000) / cData.maxTons) * 100);
+            
+            const volColor = volPct > 90 ? '#ef4444' : (volPct > 70 ? '#f59e0b' : '#10b981');
+            const wgtColor = wgtPct > 90 ? '#ef4444' : (wgtPct > 70 ? '#f59e0b' : '#10b981');
+
             // Info Text
             const infoText = `
                 <div class="fcl-info">
@@ -660,41 +842,79 @@ const App = {
                     <strong>Boden:</strong> ${areaM2} m²<br>
                     <strong>Est. Ladelänge:</strong> ~${Utils.fmtNum(lengthNeededCm, 0)} cm <br>
                     <span style="font-size:0.7rem; color:#666;">(bei ${(eff*100).toFixed(0)}% Staufaktor)</span>
+                    
+                    <div class="utilization-row">
+                        <div class="utilization-label">
+                            <span>Volumen (${volPct.toFixed(0)}%)</span>
+                            <div class="progress-container"><div class="progress-bar" style="width: ${volPct}%; background: ${volColor};"></div></div>
+                        </div>
+                        <div class="utilization-label">
+                            <span>Gewicht (${wgtPct.toFixed(0)}%)</span>
+                            <div class="progress-container"><div class="progress-bar" style="width: ${wgtPct}%; background: ${wgtColor};"></div></div>
+                        </div>
+                    </div>
                 </div>
             `;
 
-            // Break-even
-            const lclFixed = cfg.seaLcl.preCarriage + cfg.seaLcl.postCarriage;
-            const lclVar = cfg.seaLcl.originWM + cfg.seaLcl.ratePerWM + cfg.seaLcl.destWM;
-            
-            let beText = "";
-            if (lclVar > 0) {
-                const wmBreakEven = (total - lclFixed) / lclVar;
-                if (metrics.wmActual > wmBreakEven) {
-                    beText = `✅ FCL ist günstiger (Sparpotenzial: ${Utils.fmtMoney(seaTotal - total, currency)})`;
-                } else {
-                    beText = `ℹ️ Break-even ggü. LCL ab ca. ${Utils.fmtNum(wmBreakEven, 2)} m³`;
-                }
-            }
-
-            return { total, warning, beText, infoText };
+            return { 
+                total, warning, infoText,
+                details: [
+                    { l: 'Vorlauf', v: fmtCost(fclPre, m[0]) },
+                    { l: 'Origin Charges', v: fmtCost(fclOrig, m[1]) },
+                    { l: 'Ocean Freight', v: fmtCost(fclMain, m[2]) },
+                    { l: 'Dest Charges', v: fmtCost(fclDest, m[3]) },
+                    { l: 'Nachlauf', v: fmtCost(fclPost, m[4]) }
+                ]
+            };
         };
 
-        // --- FCL 20' ---
         const fcl20 = calcFCL('20\'', cfg.fcl20, metrics.totalVolM3, metrics.totalGrossKg);
-        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 20\' GP', fcl20.total, currency, cfg.fcl20.transitTime, [
-            { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl20.preCarriage + cfg.fcl20.postCarriage, currency) },
-            { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl20.originFix + cfg.fcl20.destFix, currency) },
-            { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl20.oceanOnly, currency) }
-        ], fcl20.infoText, fcl20.warning, fcl20.beText));
-
-        // --- FCL 40' ---
         const fcl40 = calcFCL('40\'', cfg.fcl40, metrics.totalVolM3, metrics.totalGrossKg);
-        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 40\' HC', fcl40.total, currency, cfg.fcl40.transitTime, [
-            { l: 'Vorlauf/Nachlauf', v: Utils.fmtMoney(cfg.fcl40.preCarriage + cfg.fcl40.postCarriage, currency) },
-            { l: 'Origin/Dest Charges', v: Utils.fmtMoney(cfg.fcl40.originFix + cfg.fcl40.destFix, currency) },
-            { l: 'Ocean Freight', v: Utils.fmtMoney(cfg.fcl40.oceanOnly, currency) }
-        ], fcl40.infoText, fcl40.warning, fcl40.beText));
+
+        // --- 5. LCL Break-Even Logic ---
+        let lclBreakEvenText = "";
+        const lclFixed = (cfg.seaLcl.preCarriage * m[0]) + (cfg.seaLcl.postCarriage * m[4]);
+        const lclVar = (cfg.seaLcl.originWM * m[1]) + (cfg.seaLcl.ratePerWM * m[2]) + (cfg.seaLcl.destWM * m[3]);
+
+        if (seaTotal > fcl20.total || seaTotal > fcl40.total) {
+            if (fcl20.total <= fcl40.total) {
+                lclBreakEvenText = `✅ FCL 20' GP ist günstiger (Sparpotenzial: ${Utils.fmtMoney(seaTotal - fcl20.total, currency)})`;
+            } else {
+                lclBreakEvenText = `✅ FCL 40' HC ist günstiger (Sparpotenzial: ${Utils.fmtMoney(seaTotal - fcl40.total, currency)})`;
+            }
+        } else if (lclVar > 0) {
+            const wmBreakEven20 = (fcl20.total - lclFixed) / lclVar;
+            lclBreakEvenText = `ℹ️ Break-even ggü. FCL 20' ab ca. ${Utils.fmtNum(wmBreakEven20, 2)} m³`;
+        }
+
+        // --- 6. Render Cards ---
+        // Sea LCL
+        container.appendChild(this.ui.createCard('type-sea', '🚢 Seefracht LCL', seaTotal, currency, cfg.seaLcl.transitTime, [
+            { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
+            { l: 'Vorlauf', v: fmtCost(seaPre, m[0]) },
+            { l: 'Origin Charges', v: fmtCost(seaOrg, m[1]) },
+            { l: 'Seefracht', v: fmtCost(seaMain, m[2]) },
+            { l: 'Dest. Charges', v: fmtCost(seaDest, m[3]) },
+            { l: 'Nachlauf', v: fmtCost(seaPost, m[4]) }
+        ], null, null, lclBreakEvenText));
+
+        // Train LCL
+        if (cfg.trainLcl.active !== false) {
+            container.appendChild(this.ui.createCard('type-train', '🚂 Bahn LCL', trainTotal, currency, cfg.trainLcl.transitTime, [
+                 { l: `Basis W/M (${Utils.fmtNum(metrics.wmEff, 3)})`, v: '' },
+                 { l: 'Vorlauf', v: fmtCost(trPre, m[0]) },
+                 { l: 'Origin Charges', v: fmtCost(trOrg, m[1]) },
+                 { l: 'Rail Freight', v: fmtCost(trMain, m[2]) },
+                 { l: 'Dest Charges', v: fmtCost(trDest, m[3]) },
+                 { l: 'Nachlauf', v: fmtCost(trPost, m[4]) }
+            ]));
+        }
+
+        // FCL 20'
+        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 20\' GP', fcl20.total, currency, cfg.fcl20.transitTime, fcl20.details, fcl20.infoText, fcl20.warning));
+
+        // FCL 40'
+        container.appendChild(this.ui.createCard('type-fcl', '🚢 FCL 40\' HC', fcl40.total, currency, cfg.fcl40.transitTime, fcl40.details, fcl40.infoText, fcl40.warning));
     },
 
     ui: {
@@ -721,9 +941,57 @@ const App = {
                 }
             });
 
-            document.getElementById('destination').addEventListener('change', () => App.calculate());
+            document.getElementById('role').addEventListener('change', (e) => {
+                App.state.role = e.target.value;
+                App.calculate();
+            });
+
+            document.getElementById('incoterm').addEventListener('change', (e) => {
+                App.state.incoterm = e.target.value;
+                App.calculate();
+            });
+
+            document.getElementById('trade-lane').addEventListener('change', (e) => {
+                App.state.tradeLane = e.target.value;
+                this.updateDestinationOptions();
+                App.loadConfig();
+                App.calculate();
+            });
+
+            document.getElementById('destination').addEventListener('change', (e) => {
+                App.state.destination = e.target.value;
+                App.loadConfig();
+                App.calculate();
+            });
+            
             document.getElementById('btn-share').addEventListener('click', App.share);
             document.getElementById('btn-admin').addEventListener('click', App.admin.open);
+        },
+
+        updateDestinationOptions: function() {
+            const tl = App.state.tradeLane;
+            const destSelect = document.getElementById('destination');
+            const options = destSelect.querySelectorAll('option');
+            
+            let firstVisible = null;
+            const targetClass = 'dest-' + tl.toLowerCase();
+            
+            options.forEach(opt => {
+                if (opt.classList.contains(targetClass)) {
+                    opt.style.display = '';
+                    if (!firstVisible) firstVisible = opt.value;
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
+            
+            const currentOpt = destSelect.querySelector(`option[value="${destSelect.value}"]`);
+            if (!currentOpt || currentOpt.style.display === 'none') {
+                if (firstVisible) {
+                    destSelect.value = firstVisible;
+                    App.state.destination = firstVisible;
+                }
+            }
         },
 
         renderPackages: function() {
@@ -770,8 +1038,11 @@ const App = {
 
     share: function() {
         const data = {
+            tl: App.state.tradeLane,
             p: App.state.packages,
-            d: document.getElementById('destination').value
+            d: App.state.destination,
+            r: App.state.role,
+            i: App.state.incoterm
         };
         const str = btoa(JSON.stringify(data));
         const url = new URL(window.location);
@@ -821,6 +1092,9 @@ const App = {
             document.getElementById('config-form').style.display = 'block';
             document.getElementById('modal-footer').style.display = 'flex';
             
+            const configKey = App.getConfigKey();
+            document.getElementById('admin-route-info').textContent = `Aktive Route: ${configKey}`;
+
             // Populate Inputs
             const inputs = document.querySelectorAll('#config-form input');
             inputs.forEach(inp => {
@@ -851,7 +1125,8 @@ const App = {
                     
                     App.state.config[path[0]][path[1]] = val;
                 });
-                localStorage.setItem('fc_config', JSON.stringify(App.state.config));
+                const configKey = App.getConfigKey();
+                localStorage.setItem(`fc_config_${configKey}`, JSON.stringify(App.state.config));
                 App.calculate();
                 document.getElementById('admin-modal').close();
             } catch(e) {
@@ -889,5 +1164,6 @@ const App = {
 document.addEventListener('DOMContentLoaded', () => App.init());
 
 </script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
